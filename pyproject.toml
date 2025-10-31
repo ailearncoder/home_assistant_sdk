@@ -1,7 +1,7 @@
 [project]
 name = "home-assistant-sdk"
 version = "0.1.0"
-description = "Add your description here"
+description = "Home Assistant SDK"
 readme = "README.md"
 authors = [
     { name = "ailearncoder", email = "ailearncoder8@gmail.com" }
@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
     "requests>=2.32.5",
     "websockets>=15.0.1",
+    "pyjwt>=2.8.0",
 ]
 
 [project.scripts]

@@ -1,5 +1,8 @@
 import requests
 import json
+import jwt
+import time
+from pathlib import Path
 from typing import Dict, Any, Optional, List
 from urllib.parse import urljoin
 
@@ -82,10 +85,30 @@ class HomeAssistantIntegrationFlow:
 
 class HomeAssistantAuth:
     """
-    一个用于处理 Home Assistant 登录流程并获取认证 Token 的类。
+    Home Assistant 认证管理类，支持智能 Token 缓存与自动刷新。
+
+    功能特性:
+        - 自动管理 access_token 和 refresh_token 的有效性
+        - 支持本地 JSON 文件缓存 Token
+        - 使用 JWT 验证 Token 是否过期
+        - 自动选择最优认证方式（缓存 Token > refresh_token > 用户名密码登录）
 
     用法:
-        auth = HomeAssistantAuth(url="http://192.168.66.28:8123", username="admin", password="admin123")
+        # 基础用法（无缓存）
+        auth = HomeAssistantAuth(
+            url="http://192.168.66.28:8123",
+            username="admin",
+            password="admin123"
+        )
+        
+        # 使用缓存目录
+        auth = HomeAssistantAuth(
+            url="http://192.168.66.28:8123",
+            username="admin",
+            password="admin123",
+            token_cache_dir="./cache"  # 可选：指定缓存目录
+        )
+        
         try:
             token_info = auth.get_token()
             access_token = token_info.get("access_token")
@@ -93,20 +116,34 @@ class HomeAssistantAuth:
         except Exception as e:
             print(f"获取 Token 失败: {e}")
     """
-    def __init__(self, url, username, password):
+    
+    def __init__(self, url: str, username: str, password: str, token_cache_dir: Optional[str] = None):
         """
         初始化 HomeAssistantAuth 类。
 
         参数:
-            url (str): Home Assistant 实例的基础 URL (例如: http://192.168.66.28:8123)。
-            username (str): 您的 Home Assistant 用户名。
-            password (str): 您的 Home Assistant 密码。
+            url (str): Home Assistant 实例的基础 URL (例如: http://192.168.66.28:8123)
+            username (str): Home Assistant 用户名
+            password (str): Home Assistant 密码
+            token_cache_dir (Optional[str]): Token 缓存目录路径，如果为 None 则不使用缓存
         """
         if url.endswith('/'):
             url = url[:-1]  # 移除末尾的斜杠，以确保 URL 拼接正确
         self.base_url = url
         self.username = username
         self.password = password
+        
+        # 配置缓存路径
+        self.token_cache_path = None
+        if token_cache_dir:
+            cache_dir = Path(token_cache_dir)
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            self.token_cache_path = cache_dir / "token_info.json"
+        
+        # 内存中的 Token 信息
+        self._cached_token_info: Optional[Dict[str, Any]] = None
+        
+        # 初始化 HTTP Session
         self.session = requests.Session()
         # 设置通用的请求头
         self.session.headers.update({
@@ -119,44 +156,197 @@ class HomeAssistantAuth:
             'Origin': self.base_url
         })
 
-    def get_token(self):
+    def get_token(self, force_refresh: bool = False) -> Dict[str, Any]:
         """
-        执行完整的认证流程以获取 access token。
+        智能获取有效的 access_token，自动处理缓存、刷新和重新登录逻辑。
+        
+        执行策略（按优先级）:
+            1. 如果内存中有有效的 access_token，直接返回
+            2. 如果缓存文件中有有效的 access_token，加载并返回
+            3. 如果 refresh_token 未过期，使用它刷新获取新 token
+            4. 如果以上都失败，使用用户名密码重新登录
+
+        参数:
+            force_refresh (bool): 是否强制刷新 Token（忽略缓存，但会尝试使用 refresh_token）
 
         返回:
-            dict: 包含 access_token, refresh_token, token_type 等信息的字典。
+            Dict[str, Any]: 包含 access_token, refresh_token, token_type, expires_in 等信息的字典
 
         抛出:
-            Exception: 如果任何步骤失败。
+            Exception: 如果所有认证方式都失败
+        """
+        # 策略1: 检查内存中的 access_token 是否有效
+        if not force_refresh and self._cached_token_info:
+            if self._is_access_token_valid(self._cached_token_info.get("access_token")):
+                print("✓ 使用内存中的有效 access_token")
+                return self._cached_token_info
+        
+        # 策略2: 检查缓存文件中的 access_token 是否有效
+        if not force_refresh and self.token_cache_path and self.token_cache_path.exists():
+            cached_token = self._load_token_from_cache()
+            if cached_token and self._is_access_token_valid(cached_token.get("access_token")):
+                print("✓ 从缓存文件加载有效的 access_token")
+                self._cached_token_info = cached_token
+                return cached_token
+        
+        # 策略3: 尝试使用 refresh_token 刷新
+        refresh_token = None
+        if self._cached_token_info:
+            refresh_token = self._cached_token_info.get("refresh_token")
+        elif self.token_cache_path and self.token_cache_path.exists():
+            cached_token = self._load_token_from_cache()
+            if cached_token:
+                refresh_token = cached_token.get("refresh_token")
+        
+        if refresh_token and self._is_refresh_token_valid(refresh_token):
+            try:
+                print("⟳ 使用 refresh_token 刷新 access_token")
+                client_id = f"{self.base_url}/"
+                token_info = self._refresh_access_token(client_id, refresh_token)
+                self._save_token(token_info)
+                return token_info
+            except Exception as e:
+                print(f"⚠ refresh_token 刷新失败: {e}，尝试重新登录")
+        
+        # 策略4: 使用用户名密码重新登录
+        print("⟳ 使用用户名密码重新登录")
+        token_info = self._login_with_credentials()
+        self._save_token(token_info)
+        return token_info
+
+    # ========== Token 验证相关方法 ==========
+    
+    def _is_access_token_valid(self, access_token: Optional[str]) -> bool:
+        """
+        验证 access_token 是否有效（未过期）。
+        
+        参数:
+            access_token (Optional[str]): 待验证的 access_token
+            
+        返回:
+            bool: Token 有效返回 True，否则返回 False
+        """
+        if not access_token:
+            return False
+        
+        try:
+            # 解码 JWT（不验证签名，仅检查过期时间）
+            decoded = jwt.decode(
+                access_token,
+                options={"verify_signature": False, "verify_exp": True}
+            )
+            # JWT 库会在 Token 过期时抛出 ExpiredSignatureError
+            return True
+        except jwt.ExpiredSignatureError:
+            print("  ✗ access_token 已过期")
+            return False
+        except jwt.InvalidTokenError as e:
+            print(f"  ✗ access_token 无效: {e}")
+            return False
+    
+    def _is_refresh_token_valid(self, refresh_token: Optional[str]) -> bool:
+        """
+        验证 refresh_token 是否有效。
+        
+        注意: refresh_token 通常不是 JWT 格式，无法通过解码验证。
+        Home Assistant 的 refresh_token 有效期默认为 6 个月，这里只做简单的非空检查。
+        实际有效性需要在刷新时由服务器验证。
+        
+        参数:
+            refresh_token (Optional[str]): 待验证的 refresh_token
+            
+        返回:
+            bool: Token 非空返回 True，否则返回 False
+        """
+        return bool(refresh_token)
+    
+    # ========== Token 缓存相关方法 ==========
+    
+    def _load_token_from_cache(self) -> Optional[Dict[str, Any]]:
+        """
+        从缓存文件加载 Token 信息。
+        
+        返回:
+            Optional[Dict[str, Any]]: Token 信息字典，加载失败返回 None
+        """
+        try:
+            if self.token_cache_path and self.token_cache_path.exists():
+                with open(self.token_cache_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"⚠ 加载缓存文件失败: {e}")
+        return None
+    
+    def _save_token(self, token_info: Dict[str, Any]) -> None:
+        """
+        保存 Token 信息到内存和缓存文件。
+        
+        参数:
+            token_info (Dict[str, Any]): Token 信息字典
+        """
+        # 保存到内存
+        self._cached_token_info = token_info
+        
+        # 保存到文件
+        if self.token_cache_path:
+            try:
+                with open(self.token_cache_path, 'w', encoding='utf-8') as f:
+                    json.dump(token_info, f, indent=4, ensure_ascii=False)
+                print(f"✓ Token 已保存到: {self.token_cache_path}")
+            except Exception as e:
+                print(f"⚠ 保存 Token 到缓存文件失败: {e}")
+    
+    # ========== 认证流程相关方法 ==========
+    
+    def _login_with_credentials(self) -> Dict[str, Any]:
+        """
+        使用用户名密码执行完整的登录流程。
+
+        返回:
+            Dict[str, Any]: 包含 access_token, refresh_token 等信息的字典
+
+        抛出:
+            Exception: 如果任何步骤失败
         """
         client_id = f"{self.base_url}/"
         redirect_uri = f"{self.base_url}/?auth_callback=1"
 
         # 步骤 1: 发起登录流程，获取 flow_id
         flow_id = self._initiate_login_flow(client_id, redirect_uri)
-        print(f"步骤 1/3: 成功获取 flow_id -> {flow_id}")
+        print(f"  步骤 1/3: 成功获取 flow_id -> {flow_id}")
 
         # 步骤 2: 提交用户名和密码，获取授权码 (code)
         auth_code = self._submit_credentials(flow_id, client_id)
-        print(f"步骤 2/3: 成功获取授权码 -> {auth_code}")
+        print(f"  步骤 2/3: 成功获取授权码 -> {auth_code[:20]}...")
 
         # 步骤 3: 使用授权码获取 access_token
         token_info = self._exchange_code_for_token(auth_code, client_id)
-        print("步骤 3/3: 成功获取 Token！")
+        print("  步骤 3/3: 成功获取 Token！")
         
         return token_info
-
-    def refresh_token(self, client_id: str, refresh_token: str):
+    
+    def _refresh_access_token(self, client_id: str, refresh_token: str) -> Dict[str, Any]:
+        """
+        使用 refresh_token 刷新获取新的 access_token。
+        
+        参数:
+            client_id (str): 客户端 ID
+            refresh_token (str): 刷新令牌
+            
+        返回:
+            Dict[str, Any]: 新的 Token 信息
+            
+        抛出:
+            Exception: 如果刷新失败
+        """
         url = f"{self.base_url}/auth/token"
         payload = {
             'client_id': client_id,
             'grant_type': 'refresh_token',
             'refresh_token': refresh_token
         }
-        # 对于 multipart/form-data，requests 会自动设置 Content-Type
-        # 无需手动设置 boundary
         
-        # 移除之前设置的 Content-Type，让 requests 自动处理
+        # 移除 Content-Type，让 requests 自动处理 multipart/form-data
         if 'Content-Type' in self.session.headers:
             del self.session.headers['Content-Type']
 
@@ -165,7 +355,8 @@ class HomeAssistantAuth:
         
         token_data = response.json()
         if "access_token" not in token_data:
-            raise Exception(f"未能从最终响应中获取 access_token: {token_data}")
+            raise Exception(f"未能从响应中获取 access_token: {token_data}")
+        
         return token_data
 
 
@@ -235,23 +426,36 @@ if __name__ == '__main__':
     HA_USERNAME = "admin"
     HA_PASSWORD = "admin123"
 
-    # 创建认证类的实例
-    ha_auth = HomeAssistantAuth(url=HA_URL, username=HA_USERNAME, password=HA_PASSWORD)
+    # 创建认证类的实例（带缓存目录）
+    ha_auth = HomeAssistantAuth(
+        url=HA_URL,
+        username=HA_USERNAME,
+        password=HA_PASSWORD,
+        token_cache_dir="./cache"  # 指定缓存目录
+    )
 
     try:
-        # 获取 Token
+        # 获取 Token（首次会登录，后续会自动使用缓存或刷新）
         token_information = ha_auth.get_token()
         
         # 打印获取到的完整 Token 信息
         print("\n--- 获取到的 Token 信息 ---")
-        print(json.dumps(token_information, indent=2))
+        print(json.dumps(token_information, indent=2, ensure_ascii=False))
         
         # 单独提取 access_token
-        access_token = token_information.get("access_token")
-        print(f"\nAccess Token: {access_token}")
-
-        access_token = ha_auth.refresh_token(client_id="http://192.168.66.28:8123/", refresh_token="379ee0c59fdbcfba7ae01cbfe8ea611047ae5731f9621a20738089a196ae7360b5b2c29e3a7969f6d79e3ce510d1bf8780f4deafde91e730bcacb8967eea48d3")
-        print(f"\nAccess Token: {access_token}")
+        access_token = token_information.get("access_token", "")
+        print(f"\nAccess Token: {access_token[:50] if access_token else 'N/A'}...")  # 只显示前50个字符
+        
+        # 测试：再次调用 get_token，应该直接使用缓存
+        print("\n--- 测试缓存功能 ---")
+        token_information_2 = ha_auth.get_token()
+        print(f"第二次调用是否返回相同的 token: {token_information == token_information_2}")
+        
+        # 测试：强制刷新
+        print("\n--- 测试强制刷新 ---")
+        token_information_3 = ha_auth.get_token(force_refresh=True)
+        refresh_token_str = token_information_3.get('access_token', '')
+        print(f"强制刷新后的 Access Token: {refresh_token_str[:50] if refresh_token_str else 'N/A'}...")
 
     except requests.exceptions.RequestException as e:
         print(f"\n--- 请求失败 ---")

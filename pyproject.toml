@@ -1,0 +1,23 @@
+[project]
+name = "home-assistant"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "ailearncoder", email = "ailearncoder8@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.32.5",
+    "websockets>=15.0.1",
+]
+
+[project.scripts]
+home-assistant = "home_assistant:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple"

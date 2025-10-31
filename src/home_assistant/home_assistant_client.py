@@ -292,6 +292,47 @@ class HAWebSocketClient:
         }
         _ = await self._send_and_get_result(payload)
 
+    async def wait_for_flow_progress(
+        self, 
+        handler: str,
+        timeout: int = 120,
+        callback: Callable[[str], Awaitable[None]] | None = None
+    ) -> str:
+        """
+        等待指定集成的流程进展事件
+        
+        参数:
+            handler (str): 集成处理器名称 (例如: 'xiaomi_home')
+            timeout (int): 超时时间（秒）
+            callback (Callable): 可选的回调函数，在接收到事件时调用
+            
+        返回:
+            str: 新的 flow_id
+        """
+        flow_id_future: asyncio.Future[str] = asyncio.get_running_loop().create_future()
+        
+        async def on_flow_progress(event: JSONDict) -> None:
+            event_data = event.get("data", {})
+            if event_data.get("handler") == handler:
+                new_flow_id = event_data.get("flow_id")
+                if new_flow_id and not flow_id_future.done():
+                    flow_id_future.set_result(new_flow_id)
+                if callback:
+                    await callback(new_flow_id)
+        
+        # 订阅流程进展事件
+        sub_id = await self.subscribe_events(
+            on_flow_progress, 
+            event_type="data_entry_flow_progressed"
+        )
+        
+        try:
+            result = await asyncio.wait_for(flow_id_future, timeout=timeout)
+            return result
+        finally:
+            # 取消订阅
+            await self.unsubscribe_events(sub_id)
+
     # ---------- 内部：连接与鉴权 ----------
     @staticmethod
     def _normalize_ws_url(base: str) -> str:
@@ -471,7 +512,8 @@ class HAWebSocketClient:
                 # 批量消息（coalesce 或服务器批量推送）
                 if isinstance(data, list):
                     for item in data:
-                        await self._dispatch_message(item)
+                        if isinstance(item, dict):
+                            await self._dispatch_message(item)
                     continue
 
                 await self._dispatch_message(data)

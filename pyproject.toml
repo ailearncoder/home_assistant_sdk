@@ -1,5 +1,5 @@
 [project]
-name = "home-assistant"
+name = "home-assistant-sdk"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-home-assistant = "home_assistant:main"
+home-assistant-sdk = "home_assistant_sdk:main"
 
 [build-system]
 requires = ["hatchling"]

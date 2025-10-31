@@ -18,6 +18,17 @@ from .home_assistant_client import HAWebSocketClient, HAWebSocketError, HAAuthEr
 from .xiaomi_home_flow import XiaomiHomeIntegration, setup_xiaomi_home_integration
 from .mcp_server_flow import MCPServerIntegration, setup_mcp_server_integration
 
+# 日志管理模块
+from .logger import (
+    get_logger,
+    setup_logging,
+    LogLevel,
+    LogOutput,
+    LoggerConfig,
+    LoggerManager,
+    AbstractLogger,
+)
+
 __all__ = [
     # 版本
     "__version__",
@@ -40,6 +51,15 @@ __all__ = [
     # MCP集成
     "MCPServerIntegration",
     "setup_mcp_server_integration",
+    
+    # 日志管理
+    "get_logger",
+    "setup_logging",
+    "LogLevel",
+    "LogOutput",
+    "LoggerConfig",
+    "LoggerManager",
+    "AbstractLogger",
 ]
 
 

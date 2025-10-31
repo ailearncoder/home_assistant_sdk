@@ -8,6 +8,10 @@ import asyncio
 from typing import Dict, Any, Optional, List
 from .home_assistant_api import HomeAssistantIntegrationFlow
 from .home_assistant_client import HAWebSocketClient
+from .logger import get_logger
+
+# 创建模块logger
+logger = get_logger(__name__)
 
 
 class XiaomiHomeIntegration:
@@ -173,19 +177,19 @@ class XiaomiHomeIntegration:
         """
         try:
             # 步骤1: 启动流程
-            print("Step 1: Starting xiaomi_home integration flow...")
+            logger.info("Step 1: Starting xiaomi_home integration flow...")
             self.start_xiaomi_flow()
-            print(f"   -> Success! Initial Flow ID: {self.initial_flow_id}")
+            logger.info(f"   -> Success! Initial Flow ID: {self.initial_flow_id}")
             
             # 步骤2: 提交EULA
-            print("Step 2: Accepting EULA...")
+            logger.info("Step 2: Accepting EULA...")
             self.submit_eula()
-            print("   -> Success! EULA accepted.")
+            logger.info("   -> Success! EULA accepted.")
             
             # 步骤3: 获取OAuth URL
-            print("Step 3: Submitting server configuration...")
+            logger.info("Step 3: Submitting server configuration...")
             oauth_url = self.submit_auth_config(cloud_server, language, redirect_url)
-            print("   -> Success! OAuth URL retrieved.")
+            logger.info("   -> Success! OAuth URL retrieved.")
             
             # 显示OAuth URL供用户访问
             print("\n" + "="*60)
@@ -196,23 +200,23 @@ class XiaomiHomeIntegration:
             print("="*60)
             
             # 步骤4: 等待OAuth完成
-            print("\nStep 4: Waiting for OAuth completion...")
+            logger.info("\nStep 4: Waiting for OAuth completion...")
             await self.wait_for_oauth_completion()
-            print(f"   -> Authentication complete! Got new Flow ID: {self.final_flow_id}")
+            logger.info(f"   -> Authentication complete! Got new Flow ID: {self.final_flow_id}")
             
             # 步骤5: 获取并提交家庭选择
-            print("\nStep 5: Fetching available Xiaomi homes...")
+            logger.info("\nStep 5: Fetching available Xiaomi homes...")
             home_options = self.get_available_homes()
-            print(f"   -> Found homes: {list(home_options.values())}")
+            logger.info(f"   -> Found homes: {list(home_options.values())}")
             
-            print("\nStep 6: Submitting home selection to complete setup...")
+            logger.info("\nStep 6: Submitting home selection to complete setup...")
             result = self.submit_home_selection()
-            print("   -> Success! The Xiaomi Home integration has been set up.")
+            logger.info("   -> Success! The Xiaomi Home integration has been set up.")
             
             return True
             
         except Exception as e:
-            print(f"\n❌ An error occurred during the flow: {e}")
+            logger.error(f"\n❌ An error occurred during the flow: {e}")
             return False
 
 

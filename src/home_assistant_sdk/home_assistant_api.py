@@ -5,6 +5,10 @@ import time
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from urllib.parse import urljoin
+from .logger import get_logger
+
+# 创建模块logger
+logger = get_logger(__name__)
 
 
 class HomeAssistantIntegrationFlow:
@@ -178,14 +182,14 @@ class HomeAssistantAuth:
         # 策略1: 检查内存中的 access_token 是否有效
         if not force_refresh and self._cached_token_info:
             if self._is_access_token_valid(self._cached_token_info.get("access_token")):
-                print("✓ 使用内存中的有效 access_token")
+                logger.info("✓ 使用内存中的有效 access_token")
                 return self._cached_token_info
         
         # 策略2: 检查缓存文件中的 access_token 是否有效
         if not force_refresh and self.token_cache_path and self.token_cache_path.exists():
             cached_token = self._load_token_from_cache()
             if cached_token and self._is_access_token_valid(cached_token.get("access_token")):
-                print("✓ 从缓存文件加载有效的 access_token")
+                logger.info("✓ 从缓存文件加载有效的 access_token")
                 self._cached_token_info = cached_token
                 return cached_token
         
@@ -200,16 +204,16 @@ class HomeAssistantAuth:
         
         if refresh_token and self._is_refresh_token_valid(refresh_token):
             try:
-                print("⟳ 使用 refresh_token 刷新 access_token")
+                logger.info("⟳ 使用 refresh_token 刷新 access_token")
                 client_id = f"{self.base_url}/"
                 token_info = self._refresh_access_token(client_id, refresh_token)
                 self._save_token(token_info)
                 return token_info
             except Exception as e:
-                print(f"⚠ refresh_token 刷新失败: {e}，尝试重新登录")
+                logger.warning(f"⚠ refresh_token 刷新失败: {e}，尝试重新登录")
         
         # 策略4: 使用用户名密码重新登录
-        print("⟳ 使用用户名密码重新登录")
+        logger.info("⟳ 使用用户名密码重新登录")
         token_info = self._login_with_credentials()
         self._save_token(token_info)
         return token_info
@@ -238,10 +242,10 @@ class HomeAssistantAuth:
             # JWT 库会在 Token 过期时抛出 ExpiredSignatureError
             return True
         except jwt.ExpiredSignatureError:
-            print("  ✗ access_token 已过期")
+            logger.debug("  ✗ access_token 已过期")
             return False
         except jwt.InvalidTokenError as e:
-            print(f"  ✗ access_token 无效: {e}")
+            logger.debug(f"  ✗ access_token 无效: {e}")
             return False
     
     def _is_refresh_token_valid(self, refresh_token: Optional[str]) -> bool:
@@ -274,7 +278,7 @@ class HomeAssistantAuth:
                 with open(self.token_cache_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
         except Exception as e:
-            print(f"⚠ 加载缓存文件失败: {e}")
+            logger.warning(f"⚠ 加载缓存文件失败: {e}")
         return None
     
     def _save_token(self, token_info: Dict[str, Any]) -> None:
@@ -292,9 +296,9 @@ class HomeAssistantAuth:
             try:
                 with open(self.token_cache_path, 'w', encoding='utf-8') as f:
                     json.dump(token_info, f, indent=4, ensure_ascii=False)
-                print(f"✓ Token 已保存到: {self.token_cache_path}")
+                logger.info(f"✓ Token 已保存到: {self.token_cache_path}")
             except Exception as e:
-                print(f"⚠ 保存 Token 到缓存文件失败: {e}")
+                logger.warning(f"⚠ 保存 Token 到缓存文件失败: {e}")
     
     # ========== 认证流程相关方法 ==========
     
@@ -313,15 +317,15 @@ class HomeAssistantAuth:
 
         # 步骤 1: 发起登录流程，获取 flow_id
         flow_id = self._initiate_login_flow(client_id, redirect_uri)
-        print(f"  步骤 1/3: 成功获取 flow_id -> {flow_id}")
+        logger.info(f"  步骤 1/3: 成功获取 flow_id -> {flow_id}")
 
         # 步骤 2: 提交用户名和密码，获取授权码 (code)
         auth_code = self._submit_credentials(flow_id, client_id)
-        print(f"  步骤 2/3: 成功获取授权码 -> {auth_code[:20]}...")
+        logger.info(f"  步骤 2/3: 成功获取授权码 -> {auth_code[:20]}...")
 
         # 步骤 3: 使用授权码获取 access_token
         token_info = self._exchange_code_for_token(auth_code, client_id)
-        print("  步骤 3/3: 成功获取 Token！")
+        logger.info("  步骤 3/3: 成功获取 Token！")
         
         return token_info
     

@@ -7,6 +7,10 @@ MCP服务器集成的专用流程管理
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, asdict
 from .home_assistant_api import HomeAssistantIntegrationFlow
+from .logger import get_logger
+
+# 创建模块logger
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -143,19 +147,19 @@ class MCPServerIntegration:
             MCPCreateEntryResponse: 创建结果
         """
         # 第一步：创建流程
-        print("Step 1: Creating MCP integration flow...")
+        logger.info("Step 1: Creating MCP integration flow...")
         flow_response = self.create_flow()
-        print(f"   -> Success! Flow ID: {flow_response.flow_id}")
+        logger.info(f"   -> Success! Flow ID: {flow_response.flow_id}")
         
         # 第二步：提取可用选项（如果未指定）
         if llm_hass_api is None:
             llm_hass_api = self.extract_available_options(flow_response)
-            print(f"   -> Available options: {llm_hass_api}")
+            logger.info(f"   -> Available options: {llm_hass_api}")
         
         # 第三步：提交配置
-        print("Step 2: Submitting MCP configuration...")
+        logger.info("Step 2: Submitting MCP configuration...")
         entry_response = self.submit_flow(llm_hass_api)
-        print(f"   -> Success! Entry ID: {entry_response.result.get('entry_id')}")
+        logger.info(f"   -> Success! Entry ID: {entry_response.result.get('entry_id')}")
         
         return entry_response
 
@@ -187,8 +191,8 @@ def setup_mcp_server_integration(
     # 运行完整流程
     result = mcp.setup_integration(llm_hass_api)
     
-    print(f"\n🎉 MCP集成设置成功: {result.title}")
-    print(f"   Entry ID: {result.result.get('entry_id')}")
+    logger.info(f"\n🎉 MCP集成设置成功: {result.title}")
+    logger.info(f"   Entry ID: {result.result.get('entry_id')}")
     
     return result
 

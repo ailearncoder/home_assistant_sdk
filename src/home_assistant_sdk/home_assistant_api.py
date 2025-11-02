@@ -211,6 +211,8 @@ class HomeAssistantAuth:
                 return token_info
             except Exception as e:
                 logger.warning(f"⚠ refresh_token 刷新失败: {e}，尝试重新登录")
+        else:
+            logger.info(f"⟳ refresh_token 无效:{refresh_token}")
         
         # 策略4: 使用用户名密码重新登录
         logger.info("⟳ 使用用户名密码重新登录")

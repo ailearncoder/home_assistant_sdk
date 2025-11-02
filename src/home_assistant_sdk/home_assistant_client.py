@@ -56,7 +56,7 @@ class HAWebSocketClient:
         connect_timeout: float = 15.0,
         auto_reconnect: bool = True,
         reconnect_max_delay: float = 60.0,
-        enable_coalesce_messages: bool = False,
+        enable_coalesce_messages: bool = True,
         on_reconnect: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         """

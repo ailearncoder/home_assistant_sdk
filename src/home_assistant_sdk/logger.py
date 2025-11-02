@@ -69,9 +69,9 @@ class LoggerConfig:
         self.max_bytes = max_bytes
         self.backup_count = backup_count
         
-        # 默认日志格式：时间 - 日志器名称 - 等级 - 消息
-        self.format_string = format_string or "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        # 默认日期格式：年-月-日 时:分:秒
+        # 默认日志格式:时间 - 日志器名称 - 等级 - 消息（时间包含毫秒）
+        self.format_string = format_string or "%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - %(message)s"
+        # 默认日期格式:年-月-日 时:分:秒（毫秒通过format_string中的msecs添加）
         self.date_format = date_format or "%Y-%m-%d %H:%M:%S"
         
         # 验证配置

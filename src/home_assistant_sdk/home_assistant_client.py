@@ -134,6 +134,47 @@ class HAWebSocketClient:
 
     # === 常用 API 方法封装 ===
 
+    async def _subscribe_with_callback(
+        self,
+        payload: JSONDict,
+        callback: EventCallback,
+        restore_op: str,
+        restore_args: JSONDict,
+    ) -> int:
+        """
+        通用订阅方法：先注册回调再发送请求，避免竞态条件。
+        
+        参数:
+            payload: 订阅请求的payload
+            callback: 事件回调函数
+            restore_op: 重连恢复时的操作名称
+            restore_args: 重连恢复时的参数
+        
+        返回:
+            订阅ID
+        """
+        # 先分配 ID 并注册回调，避免竞态条件
+        async with self._lock:
+            sub_id = self._next_id
+            self._next_id += 1
+            self._subscriptions[sub_id] = callback
+        
+        # 发送订阅请求
+        payload["id"] = sub_id
+        await self._send_raw(payload)
+        
+        # 等待确认
+        result = await self._await_result(sub_id)
+        if not result.get("success", False):
+            # 如果失败，清理已注册的回调
+            self._subscriptions.pop(sub_id, None)
+            err = result.get("error") or {}
+            raise HARequestError(f"Request failed: {err}")
+        
+        # 记录以便重连恢复
+        self._resubscribe_cache.append({"op": restore_op, "args": restore_args})
+        return sub_id
+
     async def subscribe_config_entries(
         self, callback: EventCallback, type_filter: list[str] | None = None
     ) -> int:
@@ -144,11 +185,9 @@ class HAWebSocketClient:
         payload: JSONDict = {"type": "config_entries/subscribe"}
         if type_filter:
             payload["type_filter"] = type_filter
-        sub_id = await self._send_and_confirm(payload)
-        self._subscriptions[sub_id] = callback
-        # 记录以便重连恢复
-        self._resubscribe_cache.append({"op": "subscribe_config_entries", "args": {"type_filter": type_filter}})
-        return sub_id
+        return await self._subscribe_with_callback(
+            payload, callback, "subscribe_config_entries", {"type_filter": type_filter}
+        )
 
     async def subscribe_events(
         self, callback: EventCallback, event_type: str | None = None
@@ -160,11 +199,9 @@ class HAWebSocketClient:
         payload: JSONDict = {"type": "subscribe_events"}
         if event_type:
             payload["event_type"] = event_type
-        sub_id = await self._send_and_confirm(payload)
-        self._subscriptions[sub_id] = callback
-        # 记录以便重连恢复
-        self._resubscribe_cache.append({"op": "subscribe_events", "args": {"event_type": event_type}})
-        return sub_id
+        return await self._subscribe_with_callback(
+            payload, callback, "subscribe_events", {"event_type": event_type}
+        )
 
     async def subscribe_trigger(
         self, callback: EventCallback, trigger: JSONDict | list[JSONDict]
@@ -173,10 +210,9 @@ class HAWebSocketClient:
         订阅自动化触发器（语法同 Home Assistant automation 触发器）。
         """
         payload: JSONDict = {"type": "subscribe_trigger", "trigger": trigger}
-        sub_id = await self._send_and_confirm(payload)
-        self._subscriptions[sub_id] = callback
-        self._resubscribe_cache.append({"op": "subscribe_trigger", "args": {"trigger": trigger}})
-        return sub_id
+        return await self._subscribe_with_callback(
+            payload, callback, "subscribe_trigger", {"trigger": trigger}
+        )
 
     async def unsubscribe_events(self, subscription_id: int) -> None:
         """

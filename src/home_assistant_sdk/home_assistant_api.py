@@ -207,7 +207,8 @@ class HomeAssistantAuth:
                 logger.info("⟳ 使用 refresh_token 刷新 access_token")
                 client_id = f"{self.base_url}/"
                 token_info = self._refresh_access_token(client_id, refresh_token)
-                self._save_token(token_info)
+                cached_token = self._load_token_from_cache()
+                self._save_token(cached_token.update(token_info))  # pyright: ignore[reportOptionalMemberAccess, reportArgumentType]
                 return token_info
             except Exception as e:
                 logger.warning(f"⚠ refresh_token 刷新失败: {e}，尝试重新登录")

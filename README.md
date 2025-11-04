@@ -1,21 +1,23 @@
 # Home Assistant Integration Tools
 
-一个用于与Home Assistant交互的Python工具包，提供HTTP API、WebSocket客户端以及常用集成的自动化配置功能。
+[**中文**] | [English](README_en.md)
+
+一个用于与Home Assistant 交互的 Python 工具包，提供 HTTP API、WebSocket 客户端以及常用集成的自动化配置功能。
 
 ## 功能特性
 
 ### 🔐 认证管理
 - 用户名密码登录
 - 长期访问令牌（Long-Lived Access Token）管理
-- Token刷新
+- Token 刷新与缓存
 
-### 🌐 HTTP API客户端
-- 通用的集成配置流程API
-- 支持所有Home Assistant集成的标准配置流程
+### 🌐 HTTP API 客户端
+- 通用的集成配置流程 API
+- 支持所有 Home Assistant 集成的标准配置流程
 - 流程步骤管理（启动、提交、查询）
 
-### 🔌 WebSocket客户端
-- 完整的异步WebSocket客户端实现
+### 🔌 WebSocket 客户端
+- 完整的异步 WebSocket 客户端实现
 - 事件订阅与推送
 - 服务调用
 - 状态查询
@@ -25,14 +27,14 @@
 ### 🏠 集成专用模块
 
 #### 小米智能家居集成
-- 自动化EULA接受
-- OAuth认证流程处理
+- 自动化 EULA 接受
+- OAuth 认证流程处理
 - 家庭列表获取与选择
 - 完整的配置向导
 
-#### MCP服务器集成
+#### MCP 服务器集成
 - 流程创建与配置
-- LLM API选项管理
+- LLM API 选项管理
 - 一键式集成设置
 
 ## 安装
@@ -42,7 +44,7 @@
 git clone <repository-url>
 cd home_assistant
 
-# 安装依赖（使用uv或pip）
+# 安装依赖（使用 uv 或 pip）
 uv sync
 # 或
 pip install -e .
@@ -81,7 +83,7 @@ async def main():
 asyncio.run(main())
 ```
 
-### 3. 设置MCP服务器集成
+### 3. 设置 MCP 服务器集成
 
 ```python
 from home_assistant import setup_mcp_server_integration
@@ -93,7 +95,7 @@ result = setup_mcp_server_integration(
 print(f"Entry ID: {result.result.get('entry_id')}")
 ```
 
-### 4. 使用WebSocket客户端
+### 4. 使用 WebSocket 客户端
 
 ```python
 import asyncio
@@ -120,33 +122,33 @@ asyncio.run(main())
 ```
 src/home_assistant/
 ├── __init__.py                 # 包导出和初始化
-├── home_assistant_api.py       # HTTP API客户端（通用）
-├── home_assistant_client.py    # WebSocket客户端（通用）
+├── home_assistant_api.py       # HTTP API 客户端（通用）
+├── home_assistant_client.py    # WebSocket 客户端（通用）
 ├── xiaomi_home_flow.py         # 小米智能家居集成专用
-├── mcp_server_flow.py          # MCP服务器集成专用
+├── mcp_server_flow.py          # MCP 服务器集成专用
 ├── ha_xiaomi_setup.py          # [废弃] 旧版小米集成代码
-└── mcp_integration.py          # [废弃] 旧版MCP集成代码
+└── mcp_integration.py          # [废弃] 旧版 MCP 集成代码
 ```
 
 ### 核心模块说明
 
 | 模块 | 功能 | 类型 |
 |------|------|------|
-| `home_assistant_api.py` | HTTP请求的通用封装 | 通用 |
-| `home_assistant_client.py` | WebSocket连接的通用封装 | 通用 |
+| `home_assistant_api.py` | HTTP 请求的通用封装 | 通用 |
+| `home_assistant_client.py` | WebSocket 连接的通用封装 | 通用 |
 | `xiaomi_home_flow.py` | 小米集成的特定流程 | 专用 |
-| `mcp_server_flow.py` | MCP集成的特定流程 | 专用 |
+| `mcp_server_flow.py` | MCP 集成的特定流程 | 专用 |
 
 ## 文档
 
 - [重构总结](./REFACTORING_SUMMARY.md) - 详细的重构说明和架构设计
 - [使用示例](./USAGE_EXAMPLES.md) - 完整的使用示例和最佳实践
 
-## API参考
+## API 参考
 
 ### HomeAssistantAuth
 
-用户认证和Token管理。
+用户认证和 Token 管理。
 
 ```python
 auth = HomeAssistantAuth(url, username, password)
@@ -156,7 +158,7 @@ new_token = auth.refresh_token(client_id, refresh_token)
 
 ### HomeAssistantIntegrationFlow
 
-通用的集成配置流程HTTP API。
+通用的集成配置流程 HTTP API。
 
 ```python
 api = HomeAssistantIntegrationFlow(base_url, token, verify_ssl=True)
@@ -167,7 +169,7 @@ info = api.get_flow_info(flow_id)
 
 ### HAWebSocketClient
 
-异步WebSocket客户端。
+异步 WebSocket 客户端。
 
 ```python
 async with HAWebSocketClient(ws_url, token) as ws:
@@ -205,7 +207,7 @@ result = xiaomi.submit_home_selection(home_ids)
 
 ### MCPServerIntegration
 
-MCP服务器集成专用类。
+MCP 服务器集成专用类。
 
 ```python
 mcp = MCPServerIntegration(api_client)
@@ -230,13 +232,13 @@ await setup_xiaomi_home_integration(
 
 ### setup_mcp_server_integration
 
-一键设置MCP服务器集成。
+一键设置 MCP 服务器集成。
 
 ```python
 result = setup_mcp_server_integration(
     base_url="http://192.168.66.28:8123",
     token="YOUR_TOKEN",
-    llm_hass_api=None,  # None表示使用所有可用选项
+    llm_hass_api=None,  # None 表示使用所有可用选项
     verify_ssl=False
 )
 ```
@@ -265,7 +267,7 @@ HA_TOKEN = os.environ.get("HA_TOKEN")
 
 ```python
 from home_assistant import (
-    HAWebSocketError,    # 通用WebSocket错误
+    HAWebSocketError,    # 通用 WebSocket 错误
     HAAuthError,         # 认证失败
     HAConnectionClosed,  # 连接已关闭
     HARequestError       # 请求失败
@@ -279,13 +281,13 @@ except HAAuthError as e:
 except HAConnectionClosed as e:
     print(f"连接关闭: {e}")
 except HAWebSocketError as e:
-    print(f"WebSocket错误: {e}")
+    print(f"WebSocket 错误: {e}")
 ```
 
 ## 依赖项
 
-- `requests` - HTTP请求
-- `websockets` - WebSocket连接
+- `requests` - HTTP 请求
+- `websockets` - WebSocket 连接
 - Python 3.10+
 
 ## 开发
@@ -299,10 +301,10 @@ export HA_TOKEN="your_token_here"
 # 运行小米集成示例
 python -m home_assistant.xiaomi_home_flow
 
-# 运行MCP集成示例
+# 运行 MCP 集成示例
 python -m home_assistant.mcp_server_flow
 
-# 运行WebSocket客户端示例
+# 运行 WebSocket 客户端示例
 python -m home_assistant.home_assistant_client
 ```
 
@@ -310,7 +312,7 @@ python -m home_assistant.home_assistant_client
 
 如果需要添加新的集成，可以参考 `xiaomi_home_flow.py` 或 `mcp_server_flow.py` 的实现：
 
-1. 创建新的Python文件（如 `your_integration_flow.py`）
+1. 创建新的 Python 文件（如 `your_integration_flow.py`）
 2. 导入通用基础设施：
    ```python
    from .home_assistant_api import HomeAssistantIntegrationFlow
@@ -321,7 +323,7 @@ python -m home_assistant.home_assistant_client
 
 ## 贡献
 
-欢迎提交Issue和Pull Request！
+欢迎提交 Issue 和 Pull Request！
 
 ## 许可证
 
@@ -329,6 +331,7 @@ MIT License
 
 ## 相关链接
 
-- [Home Assistant官方文档](https://www.home-assistant.io/)
+- [Home Assistant 官方文档](https://www.home-assistant.io/)
 - [Home Assistant WebSocket API](https://developers.home-assistant.io/docs/api/websocket/)
 - [Home Assistant REST API](https://developers.home-assistant.io/docs/api/rest/)
+

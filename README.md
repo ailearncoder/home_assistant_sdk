@@ -10,6 +10,7 @@
 - 用户名密码登录
 - 长期访问令牌（Long-Lived Access Token）管理
 - Token 刷新与缓存
+- Token 撤销功能
 
 ### 🌐 HTTP API 客户端
 - 通用的集成配置流程 API
@@ -65,6 +66,13 @@ auth = HomeAssistantAuth(
 
 token_info = auth.get_token()
 access_token = token_info.get("access_token")
+
+# 撤销令牌（当不再需要时）
+try:
+    success = auth.revoke_token(access_token)
+    print(f"令牌撤销成功: {success}")
+except Exception as e:
+    print(f"令牌撤销失败: {e}")
 ```
 
 ### 2. 设置小米智能家居集成
@@ -154,6 +162,9 @@ src/home_assistant/
 auth = HomeAssistantAuth(url, username, password)
 token_info = auth.get_token()
 new_token = auth.refresh_token(client_id, refresh_token)
+
+# 撤销令牌
+success = auth.revoke_token(token_to_revoke)
 ```
 
 ### HomeAssistantIntegrationFlow

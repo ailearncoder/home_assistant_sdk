@@ -31,6 +31,13 @@ new_token = auth.refresh_token(
     client_id=f"{HA_URL}/",
     refresh_token=refresh_token
 )
+
+# 撤销Token（当不再需要时）
+try:
+    success = auth.revoke_token(access_token)
+    print(f"Token撤销成功: {success}")
+except Exception as e:
+    print(f"Token撤销失败: {e}")
 ```
 
 ## 2. 小米智能家居集成

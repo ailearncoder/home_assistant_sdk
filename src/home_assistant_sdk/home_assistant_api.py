@@ -225,6 +225,31 @@ class HomeAssistantAuth:
         self._save_token(token_info)
         return token_info
 
+    def revoke_token(self, token: str) -> bool:
+        """
+        撤销指定的令牌
+        
+        参数:
+            token (str): 要撤销的令牌
+            
+        返回:
+            bool: 撤销成功返回True，否则抛出异常
+        """
+        url = urljoin(self.base_url, '/auth/revoke')
+        
+        # 移除 Content-Type，让 requests 自动处理 multipart/form-data
+        if 'Content-Type' in self.session.headers:
+            del self.session.headers['Content-Type']
+        
+        # 准备表单数据
+        payload = {'token': token}
+        
+        response = self.session.post(url, data=payload)
+        response.raise_for_status()
+        
+        # 成功撤销返回200状态码，且响应体为空
+        return response.status_code == 200
+
     # ========== Token 验证相关方法 ==========
     
     def _is_access_token_valid(self, access_token: Optional[str]) -> bool:

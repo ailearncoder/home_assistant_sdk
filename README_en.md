@@ -10,6 +10,7 @@ A Python toolkit for interacting with Home Assistant, providing HTTP API, WebSoc
 - Username/password login
 - Long-lived access token management
 - Token refresh and caching
+- Token revocation functionality
 
 ### 🌐 HTTP API Client
 - Generic integration configuration flow API
@@ -65,6 +66,13 @@ auth = HomeAssistantAuth(
 
 token_info = auth.get_token()
 access_token = token_info.get("access_token")
+
+# Revoke token (when no longer needed)
+try:
+    success = auth.revoke_token(access_token)
+    print(f"Token revocation successful: {success}")
+except Exception as e:
+    print(f"Token revocation failed: {e}")
 ```
 
 ### 2. Set up Xiaomi Smart Home Integration
@@ -106,7 +114,7 @@ async def main():
         # Get all states
         states = await ws.get_states()
         print(f"Total entities: {len(states)}")
-        
+
         # Call service
         await ws.call_service(
             domain="light",
@@ -154,6 +162,9 @@ User authentication and token management.
 auth = HomeAssistantAuth(url, username, password)
 token_info = auth.get_token()
 new_token = auth.refresh_token(client_id, refresh_token)
+
+# Revoke token
+success = auth.revoke_token(token_to_revoke)
 ```
 
 ### HomeAssistantIntegrationFlow
@@ -175,18 +186,18 @@ Asynchronous WebSocket client.
 async with HAWebSocketClient(ws_url, token) as ws:
     # Subscribe to events
     sub_id = await ws.subscribe_events(callback, event_type="state_changed")
-    
+
     # Call service
     await ws.call_service(domain, service, service_data, target)
-    
+
     # Get states
     states = await ws.get_states()
     config = await ws.get_config()
     services = await ws.get_services()
-    
+
     # Wait for flow progress
     flow_id = await ws.wait_for_flow_progress(handler, timeout)
-    
+
     # Unsubscribe
     await ws.unsubscribe_events(sub_id)
 ```

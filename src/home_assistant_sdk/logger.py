@@ -128,7 +128,7 @@ class LoggerManager:
             
             # 根据输出形式添加handler
             if config.output in [LogOutput.CONSOLE.value, LogOutput.BOTH.value]:
-                console_handler = logging.StreamHandler(sys.stdout)
+                console_handler = logging.StreamHandler(sys.stderr)
                 console_handler.setFormatter(formatter)
                 logger.addHandler(console_handler)
             
@@ -180,7 +180,7 @@ class LoggerManager:
         
         # 根据输出形式添加handler
         if cfg.output in [LogOutput.CONSOLE.value, LogOutput.BOTH.value]:
-            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler = logging.StreamHandler(sys.stderr)
             console_handler.setFormatter(formatter)
             logger.addHandler(console_handler)
         
@@ -220,7 +220,7 @@ class LoggerManager:
         )
         
         if config.output in [LogOutput.CONSOLE.value, LogOutput.BOTH.value]:
-            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler = logging.StreamHandler(sys.stderr)
             console_handler.setFormatter(formatter)
             root_logger.addHandler(console_handler)
         
